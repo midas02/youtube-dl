@@ -431,6 +431,7 @@ from .nhl import (
     NHLVideocenterIE,
 )
 from .niconico import NiconicoIE, NiconicoPlaylistIE
+from .nieuwsblad import NieuwsbladIE
 from .ninegag import NineGagIE
 from .noco import NocoIE
 from .normalboots import NormalbootsIE
