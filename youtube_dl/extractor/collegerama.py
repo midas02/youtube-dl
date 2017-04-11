@@ -21,7 +21,7 @@ class CollegeRamaIE(InfoExtractor):
                 'ext': 'mp4',
                 'title': 'Een nieuwe wereld: waarden, bewustzijn en techniek van de mensheid 2.0.',
                 'description': '',
-                'thumbnail': 're:^https?://.*\.jpg$',
+                'thumbnail': r're:^https?://.*\.jpg$',
                 'duration': 7713.088,
                 'timestamp': 1413309600,
                 'upload_date': '20141014',
@@ -46,9 +46,9 @@ class CollegeRamaIE(InfoExtractor):
         video_id = self._match_id(url)
 
         player_options_request = {
-            "getPlayerOptionsRequest": {
-                "ResourceId": video_id,
-                "QueryString": "",
+            'getPlayerOptionsRequest': {
+                'ResourceId': video_id,
+                'QueryString': '',
             }
         }
 

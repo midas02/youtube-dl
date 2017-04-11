@@ -71,6 +71,7 @@ class NowTVBaseIE(InfoExtractor):
 
 
 class NowTVIE(NowTVBaseIE):
+    _WORKING = False
     _VALID_URL = r'https?://(?:www\.)?nowtv\.(?:de|at|ch)/(?:rtl|rtl2|rtlnitro|superrtl|ntv|vox)/(?P<show_id>[^/]+)/(?:(?:list/[^/]+|jahr/\d{4}/\d{1,2})/)?(?P<id>[^/]+)/(?:player|preview)'
 
     _TESTS = [{
@@ -82,7 +83,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': 'Inka Bause stellt die neuen Bauern vor',
             'description': 'md5:e234e1ed6d63cf06be5c070442612e7e',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1432580700,
             'upload_date': '20150525',
             'duration': 2786,
@@ -100,7 +101,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': 'Berlin - Tag & Nacht (Folge 934)',
             'description': 'md5:c85e88c2e36c552dfe63433bc9506dd0',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1432666800,
             'upload_date': '20150526',
             'duration': 2641,
@@ -118,7 +119,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': 'Hals- und Beinbruch',
             'description': 'md5:b50d248efffe244e6f56737f0911ca57',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1432415400,
             'upload_date': '20150523',
             'duration': 2742,
@@ -136,7 +137,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': 'Angst!',
             'description': 'md5:30cbc4c0b73ec98bcd73c9f2a8c17c4e',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1222632900,
             'upload_date': '20080928',
             'duration': 3025,
@@ -154,7 +155,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': 'Thema u.a.: Der erste Blick: Die Apple Watch',
             'description': 'md5:4312b6c9d839ffe7d8caf03865a531af',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1432751700,
             'upload_date': '20150527',
             'duration': 1083,
@@ -172,7 +173,7 @@ class NowTVIE(NowTVBaseIE):
             'ext': 'flv',
             'title': "Büro-Fall / Chihuahua 'Joel'",
             'description': 'md5:e62cb6bf7c3cc669179d4f1eb279ad8d',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'timestamp': 1432408200,
             'upload_date': '20150523',
             'duration': 3092,

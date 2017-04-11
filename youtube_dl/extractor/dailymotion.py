@@ -16,6 +16,7 @@ from ..utils import (
     sanitized_Request,
     str_to_int,
     unescapeHTML,
+    mimetype2ext,
 )
 
 
@@ -37,7 +38,7 @@ class DailymotionBaseInfoExtractor(InfoExtractor):
 
 
 class DailymotionIE(DailymotionBaseInfoExtractor):
-    _VALID_URL = r'(?i)(?:https?://)?(?:(www|touch)\.)?dailymotion\.[a-z]{2,3}/(?:(embed|#)/)?video/(?P<id>[^/?_]+)'
+    _VALID_URL = r'(?i)(?:https?://)?(?:(www|touch)\.)?dailymotion\.[a-z]{2,3}/(?:(?:embed|swf|#)/)?video/(?P<id>[^/?_]+)'
     IE_NAME = 'dailymotion'
 
     _FORMATS = [
@@ -57,7 +58,7 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
                 'ext': 'mp4',
                 'title': 'Steam Machine Models, Pricing Listed on Steam Store - IGN News',
                 'description': 'Several come bundled with the Steam Controller.',
-                'thumbnail': 're:^https?:.*\.(?:jpg|png)$',
+                'thumbnail': r're:^https?:.*\.(?:jpg|png)$',
                 'duration': 74,
                 'timestamp': 1425657362,
                 'upload_date': '20150306',
@@ -65,7 +66,6 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
                 'uploader_id': 'xijv66',
                 'age_limit': 0,
                 'view_count': int,
-                'comment_count': int,
             }
         },
         # Vevo video
@@ -93,7 +93,8 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
                 'title': 'Leanna Decker - Cyber Girl Of The Year Desires Nude [Playboy Plus]',
                 'uploader': 'HotWaves1012',
                 'age_limit': 18,
-            }
+            },
+            'skip': 'video gone',
         },
         # geo-restricted, player v5
         {
@@ -104,8 +105,19 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
         {
             'url': 'http://www.dailymotion.com/video/x20su5f_the-power-of-nightmares-1-the-rise-of-the-politics-of-fear-bbc-2004_news',
             'only_matching': True,
+        },
+        {
+            'url': 'http://www.dailymotion.com/swf/video/x3n92nf',
+            'only_matching': True,
         }
     ]
+
+    @staticmethod
+    def _extract_urls(webpage):
+        # Look for embedded Dailymotion player
+        matches = re.findall(
+            r'<(?:(?:embed|iframe)[^>]+?src=|input[^>]+id=[\'"]dmcloudUrlEmissionSelect[\'"][^>]+value=)(["\'])(?P<url>(?:https?:)?//(?:www\.)?dailymotion\.com/(?:embed|swf)/video/.+?)\1', webpage)
+        return list(map(lambda m: unescapeHTML(m[1]), matches))
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
@@ -118,18 +130,22 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
         description = self._og_search_description(webpage) or self._html_search_meta(
             'description', webpage, 'description')
 
-        view_count = str_to_int(self._search_regex(
-            [r'<meta[^>]+itemprop="interactionCount"[^>]+content="UserPlays:(\d+)"',
-             r'video_views_count[^>]+>\s+([\d\.,]+)'],
-            webpage, 'view count', fatal=False))
+        view_count_str = self._search_regex(
+            (r'<meta[^>]+itemprop="interactionCount"[^>]+content="UserPlays:([\s\d,.]+)"',
+             r'video_views_count[^>]+>\s+([\s\d\,.]+)'),
+            webpage, 'view count', fatal=False)
+        if view_count_str:
+            view_count_str = re.sub(r'\s', '', view_count_str)
+        view_count = str_to_int(view_count_str)
         comment_count = int_or_none(self._search_regex(
             r'<meta[^>]+itemprop="interactionCount"[^>]+content="UserComments:(\d+)"',
-            webpage, 'comment count', fatal=False))
+            webpage, 'comment count', default=None))
 
         player_v5 = self._search_regex(
             [r'buildPlayer\(({.+?})\);\n',  # See https://github.com/rg3/youtube-dl/issues/7826
              r'playerV5\s*=\s*dmp\.create\([^,]+?,\s*({.+?})\);',
-             r'buildPlayer\(({.+?})\);'],
+             r'buildPlayer\(({.+?})\);',
+             r'var\s+config\s*=\s*({.+?});'],
             webpage, 'player v5', default=None)
         if player_v5:
             player = self._parse_json(player_v5, video_id)
@@ -146,21 +162,19 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
                     type_ = media.get('type')
                     if type_ == 'application/vnd.lumberjack.manifest':
                         continue
-                    ext = determine_ext(media_url)
-                    if type_ == 'application/x-mpegURL' or ext == 'm3u8':
-                        m3u8_formats = self._extract_m3u8_formats(
-                            media_url, video_id, 'mp4', m3u8_id='hls', fatal=False)
-                        if m3u8_formats:
-                            formats.extend(m3u8_formats)
-                    elif type_ == 'application/f4m' or ext == 'f4m':
-                        f4m_formats = self._extract_f4m_formats(
-                            media_url, video_id, preference=-1, f4m_id='hds', fatal=False)
-                        if f4m_formats:
-                            formats.extend(f4m_formats)
+                    ext = mimetype2ext(type_) or determine_ext(media_url)
+                    if ext == 'm3u8':
+                        formats.extend(self._extract_m3u8_formats(
+                            media_url, video_id, 'mp4', preference=-1,
+                            m3u8_id='hls', fatal=False))
+                    elif ext == 'f4m':
+                        formats.extend(self._extract_f4m_formats(
+                            media_url, video_id, preference=-1, f4m_id='hds', fatal=False))
                     else:
                         f = {
                             'url': media_url,
-                            'format_id': quality,
+                            'format_id': 'http-%s' % quality,
+                            'ext': ext,
                         }
                         m = re.search(r'H264-(?P<width>\d+)x(?P<height>\d+)', media_url)
                         if m:
@@ -268,9 +282,14 @@ class DailymotionIE(DailymotionBaseInfoExtractor):
         }
 
     def _check_error(self, info):
+        error = info.get('error')
         if info.get('error') is not None:
+            title = error['title']
+            # See https://developer.dailymotion.com/api#access-error
+            if error.get('code') == 'DM007':
+                self.raise_geo_restricted(msg=title)
             raise ExtractorError(
-                '%s said: %s' % (self.IE_NAME, info['error']['title']), expected=True)
+                '%s said: %s' % (self.IE_NAME, title), expected=True)
 
     def _get_subtitles(self, video_id, webpage):
         try:
@@ -318,7 +337,9 @@ class DailymotionPlaylistIE(DailymotionBaseInfoExtractor):
 
             for video_id in re.findall(r'data-xid="(.+?)"', webpage):
                 if video_id not in video_ids:
-                    yield self.url_result('http://www.dailymotion.com/video/%s' % video_id, 'Dailymotion')
+                    yield self.url_result(
+                        'http://www.dailymotion.com/video/%s' % video_id,
+                        DailymotionIE.ie_key(), video_id)
                     video_ids.add(video_id)
 
             if re.search(self._MORE_PAGES_INDICATOR, webpage) is None:
@@ -339,7 +360,7 @@ class DailymotionPlaylistIE(DailymotionBaseInfoExtractor):
 
 class DailymotionUserIE(DailymotionPlaylistIE):
     IE_NAME = 'dailymotion:user'
-    _VALID_URL = r'https?://(?:www\.)?dailymotion\.[a-z]{2,3}/(?!(?:embed|#|video|playlist)/)(?:(?:old/)?user/)?(?P<user>[^/]+)'
+    _VALID_URL = r'https?://(?:www\.)?dailymotion\.[a-z]{2,3}/(?!(?:embed|swf|#|video|playlist)/)(?:(?:old/)?user/)?(?P<user>[^/]+)'
     _PAGE_TEMPLATE = 'http://www.dailymotion.com/user/%s/%s'
     _TESTS = [{
         'url': 'https://www.dailymotion.com/user/nqtv',
@@ -379,7 +400,7 @@ class DailymotionUserIE(DailymotionPlaylistIE):
 
 
 class DailymotionCloudIE(DailymotionBaseInfoExtractor):
-    _VALID_URL_PREFIX = r'http://api\.dmcloud\.net/(?:player/)?embed/'
+    _VALID_URL_PREFIX = r'https?://api\.dmcloud\.net/(?:player/)?embed/'
     _VALID_URL = r'%s[^/]+/(?P<id>[^/?]+)' % _VALID_URL_PREFIX
     _VALID_EMBED_URL = r'%s[^/]+/[^\'"]+' % _VALID_URL_PREFIX
 
@@ -395,13 +416,13 @@ class DailymotionCloudIE(DailymotionBaseInfoExtractor):
     }]
 
     @classmethod
-    def _extract_dmcloud_url(self, webpage):
-        mobj = re.search(r'<iframe[^>]+src=[\'"](%s)[\'"]' % self._VALID_EMBED_URL, webpage)
+    def _extract_dmcloud_url(cls, webpage):
+        mobj = re.search(r'<iframe[^>]+src=[\'"](%s)[\'"]' % cls._VALID_EMBED_URL, webpage)
         if mobj:
             return mobj.group(1)
 
         mobj = re.search(
-            r'<input[^>]+id=[\'"]dmcloudUrlEmissionSelect[\'"][^>]+value=[\'"](%s)[\'"]' % self._VALID_EMBED_URL,
+            r'<input[^>]+id=[\'"]dmcloudUrlEmissionSelect[\'"][^>]+value=[\'"](%s)[\'"]' % cls._VALID_EMBED_URL,
             webpage)
         if mobj:
             return mobj.group(1)

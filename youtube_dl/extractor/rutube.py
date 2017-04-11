@@ -1,4 +1,4 @@
-# encoding: utf-8
+# coding: utf-8
 from __future__ import unicode_literals
 
 import re
@@ -17,7 +17,7 @@ from ..utils import (
 class RutubeIE(InfoExtractor):
     IE_NAME = 'rutube'
     IE_DESC = 'Rutube videos'
-    _VALID_URL = r'https?://rutube\.ru/(?:video|play/embed)/(?P<id>[\da-z]{32})'
+    _VALID_URL = r'https?://rutube\.ru/(?:video|(?:play/)?embed)/(?P<id>[\da-z]{32})'
 
     _TESTS = [{
         'url': 'http://rutube.ru/video/3eac3b4561676c17df9132a9a1e62e3e/',
@@ -39,7 +39,16 @@ class RutubeIE(InfoExtractor):
     }, {
         'url': 'http://rutube.ru/play/embed/a10e53b86e8f349080f718582ce4c661',
         'only_matching': True,
+    }, {
+        'url': 'http://rutube.ru/embed/a10e53b86e8f349080f718582ce4c661',
+        'only_matching': True,
     }]
+
+    @staticmethod
+    def _extract_urls(webpage):
+        return [mobj.group('url') for mobj in re.finditer(
+            r'<iframe[^>]+?src=(["\'])(?P<url>(?:https?:)?//rutube\.ru/embed/[\da-z]{32}.*?)\1',
+            webpage)]
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
@@ -58,15 +67,11 @@ class RutubeIE(InfoExtractor):
         for format_id, format_url in options['video_balancer'].items():
             ext = determine_ext(format_url)
             if ext == 'm3u8':
-                m3u8_formats = self._extract_m3u8_formats(
-                    format_url, video_id, 'mp4', m3u8_id=format_id, fatal=False)
-                if m3u8_formats:
-                    formats.extend(m3u8_formats)
+                formats.extend(self._extract_m3u8_formats(
+                    format_url, video_id, 'mp4', m3u8_id=format_id, fatal=False))
             elif ext == 'f4m':
-                f4m_formats = self._extract_f4m_formats(
-                    format_url, video_id, f4m_id=format_id, fatal=False)
-                if f4m_formats:
-                    formats.extend(f4m_formats)
+                formats.extend(self._extract_f4m_formats(
+                    format_url, video_id, f4m_id=format_id, fatal=False))
             else:
                 formats.append({
                     'url': format_url,
@@ -92,7 +97,7 @@ class RutubeIE(InfoExtractor):
 class RutubeEmbedIE(InfoExtractor):
     IE_NAME = 'rutube:embed'
     IE_DESC = 'Rutube embedded videos'
-    _VALID_URL = 'https?://rutube\.ru/(?:video|play)/embed/(?P<id>[0-9]+)'
+    _VALID_URL = r'https?://rutube\.ru/(?:video|play)/embed/(?P<id>[0-9]+)'
 
     _TESTS = [{
         'url': 'http://rutube.ru/video/embed/6722881?vk_puid37=&vk_puid38=',
@@ -126,7 +131,7 @@ class RutubeEmbedIE(InfoExtractor):
 class RutubeChannelIE(InfoExtractor):
     IE_NAME = 'rutube:channel'
     IE_DESC = 'Rutube channels'
-    _VALID_URL = r'http://rutube\.ru/tags/video/(?P<id>\d+)'
+    _VALID_URL = r'https?://rutube\.ru/tags/video/(?P<id>\d+)'
     _TESTS = [{
         'url': 'http://rutube.ru/tags/video/1800/',
         'info_dict': {
@@ -160,7 +165,7 @@ class RutubeChannelIE(InfoExtractor):
 class RutubeMovieIE(RutubeChannelIE):
     IE_NAME = 'rutube:movie'
     IE_DESC = 'Rutube movies'
-    _VALID_URL = r'http://rutube\.ru/metainfo/tv/(?P<id>\d+)'
+    _VALID_URL = r'https?://rutube\.ru/metainfo/tv/(?P<id>\d+)'
     _TESTS = []
 
     _MOVIE_TEMPLATE = 'http://rutube.ru/api/metainfo/tv/%s/?format=json'
@@ -178,7 +183,7 @@ class RutubeMovieIE(RutubeChannelIE):
 class RutubePersonIE(RutubeChannelIE):
     IE_NAME = 'rutube:person'
     IE_DESC = 'Rutube person videos'
-    _VALID_URL = r'http://rutube\.ru/video/person/(?P<id>\d+)'
+    _VALID_URL = r'https?://rutube\.ru/video/person/(?P<id>\d+)'
     _TESTS = [{
         'url': 'http://rutube.ru/video/person/313878/',
         'info_dict': {

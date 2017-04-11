@@ -1,4 +1,4 @@
-# encoding: utf-8
+# coding: utf-8
 from __future__ import unicode_literals
 
 from .common import InfoExtractor
@@ -52,7 +52,7 @@ class FazIE(InfoExtractor):
         formats = []
         for pref, code in enumerate(['LOW', 'HIGH', 'HQ']):
             encoding = xpath_element(encodings, code)
-            if encoding:
+            if encoding is not None:
                 encoding_url = xpath_text(encoding, 'FILENAME')
                 if encoding_url:
                     formats.append({

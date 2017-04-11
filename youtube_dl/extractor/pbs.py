@@ -8,7 +8,9 @@ from ..utils import (
     ExtractorError,
     determine_ext,
     int_or_none,
+    js_to_json,
     strip_jsonp,
+    strip_or_none,
     unified_strdate,
     US_RATINGS,
 )
@@ -191,34 +193,30 @@ class PBSIE(InfoExtractor):
         )
     ''' % '|'.join(list(zip(*_STATIONS))[0])
 
+    _GEO_COUNTRIES = ['US']
+
     _TESTS = [
         {
             'url': 'http://www.pbs.org/tpt/constitution-usa-peter-sagal/watch/a-more-perfect-union/',
-            'md5': 'ce1888486f0908d555a8093cac9a7362',
+            'md5': '173dc391afd361fa72eab5d3d918968d',
             'info_dict': {
                 'id': '2365006249',
                 'ext': 'mp4',
                 'title': 'Constitution USA with Peter Sagal - A More Perfect Union',
-                'description': 'md5:ba0c207295339c8d6eced00b7c363c6a',
+                'description': 'md5:31b664af3c65fd07fa460d306b837d00',
                 'duration': 3190,
-            },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
             },
         },
         {
             'url': 'http://www.pbs.org/wgbh/pages/frontline/losing-iraq/',
-            'md5': '143c98aa54a346738a3d78f54c925321',
+            'md5': '6f722cb3c3982186d34b0f13374499c7',
             'info_dict': {
                 'id': '2365297690',
                 'ext': 'mp4',
                 'title': 'FRONTLINE - Losing Iraq',
-                'description': 'md5:f5bfbefadf421e8bb8647602011caf8e',
+                'description': 'md5:5979a4d069b157f622d02bff62fbe654',
                 'duration': 5050,
             },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
-            }
         },
         {
             'url': 'http://www.pbs.org/newshour/bb/education-jan-june12-cyberschools_02-23/',
@@ -227,7 +225,7 @@ class PBSIE(InfoExtractor):
                 'id': '2201174722',
                 'ext': 'mp4',
                 'title': 'PBS NewsHour - Cyber Schools Gain Popularity, but Quality Questions Persist',
-                'description': 'md5:5871c15cba347c1b3d28ac47a73c7c28',
+                'description': 'md5:86ab9a3d04458b876147b355788b8781',
                 'duration': 801,
             },
         },
@@ -237,13 +235,10 @@ class PBSIE(InfoExtractor):
             'info_dict': {
                 'id': '2365297708',
                 'ext': 'mp4',
-                'description': 'md5:68d87ef760660eb564455eb30ca464fe',
                 'title': 'Great Performances - Dudamel Conducts Verdi Requiem at the Hollywood Bowl - Full',
+                'description': 'md5:657897370e09e2bc6bf0f8d2cd313c6b',
                 'duration': 6559,
-                'thumbnail': 're:^https?://.*\.jpg$',
-            },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
+                'thumbnail': r're:^https?://.*\.jpg$',
             },
         },
         {
@@ -256,12 +251,9 @@ class PBSIE(InfoExtractor):
                 'description': 'md5:c741d14e979fc53228c575894094f157',
                 'title': 'NOVA - Killer Typhoon',
                 'duration': 3172,
-                'thumbnail': 're:^https?://.*\.jpg$',
+                'thumbnail': r're:^https?://.*\.jpg$',
                 'upload_date': '20140122',
                 'age_limit': 10,
-            },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
             },
         },
         {
@@ -278,46 +270,41 @@ class PBSIE(InfoExtractor):
                 'display_id': 'player',
                 'ext': 'mp4',
                 'title': 'American Experience - Death and the Civil War, Chapter 1',
-                'description': 'American Experience, TV’s most-watched history series, brings to life the compelling stories from our past that inform our understanding of the world today.',
+                'description': 'md5:67fa89a9402e2ee7d08f53b920674c18',
                 'duration': 682,
-                'thumbnail': 're:^https?://.*\.jpg$',
+                'thumbnail': r're:^https?://.*\.jpg$',
             },
             'params': {
                 'skip_download': True,  # requires ffmpeg
             },
         },
         {
-            'url': 'http://video.pbs.org/video/2365367186/',
+            'url': 'http://www.pbs.org/video/2365245528/',
+            'md5': '115223d41bd55cda8ae5cd5ed4e11497',
             'info_dict': {
-                'id': '2365367186',
-                'display_id': '2365367186',
+                'id': '2365245528',
+                'display_id': '2365245528',
                 'ext': 'mp4',
-                'title': 'To Catch A Comet - Full Episode',
-                'description': 'On November 12, 2014, billions of kilometers from Earth, spacecraft orbiter Rosetta and lander Philae did what no other had dared to attempt \u2014 land on the volatile surface of a comet as it zooms around the sun at 67,000 km/hr. The European Space Agency hopes this mission can help peer into our past and unlock secrets of our origins.',
-                'duration': 3342,
-                'thumbnail': 're:^https?://.*\.jpg$',
+                'title': 'FRONTLINE - United States of Secrets (Part One)',
+                'description': 'md5:55756bd5c551519cc4b7703e373e217e',
+                'duration': 6851,
+                'thumbnail': r're:^https?://.*\.jpg$',
             },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
-            },
-            'skip': 'Expired',
         },
         {
             # Video embedded in iframe containing angle brackets as attribute's value (e.g.
             # "<iframe style='position: absolute;<br />\ntop: 0; left: 0;' ...", see
             # https://github.com/rg3/youtube-dl/issues/7059)
             'url': 'http://www.pbs.org/food/features/a-chefs-life-season-3-episode-5-prickly-business/',
+            'md5': '59b0ef5009f9ac8a319cc5efebcd865e',
             'info_dict': {
                 'id': '2365546844',
                 'display_id': 'a-chefs-life-season-3-episode-5-prickly-business',
                 'ext': 'mp4',
                 'title': "A Chef's Life - Season 3, Ep. 5: Prickly Business",
-                'description': 'md5:61db2ddf27c9912f09c241014b118ed1',
+                'description': 'md5:c0ff7475a4b70261c7e58f493c2792a5',
                 'duration': 1480,
-                'thumbnail': 're:^https?://.*\.jpg$',
-            },
-            'params': {
-                'skip_download': True,  # requires ffmpeg
+                'thumbnail': r're:^https?://.*\.jpg$',
             },
         },
         {
@@ -328,12 +315,25 @@ class PBSIE(InfoExtractor):
                 'display_id': 'the-atomic-artists',
                 'ext': 'mp4',
                 'title': 'FRONTLINE - The Atomic Artists',
-                'description': 'md5:f5bfbefadf421e8bb8647602011caf8e',
+                'description': 'md5:f677e4520cfacb4a5ce1471e31b57800',
                 'duration': 723,
-                'thumbnail': 're:^https?://.*\.jpg$',
+                'thumbnail': r're:^https?://.*\.jpg$',
             },
             'params': {
                 'skip_download': True,  # requires ffmpeg
+            },
+        },
+        {
+            # Serves hd only via wigget/partnerplayer page
+            'url': 'http://www.pbs.org/video/2365641075/',
+            'md5': 'fdf907851eab57211dd589cf12006666',
+            'info_dict': {
+                'id': '2365641075',
+                'ext': 'mp4',
+                'title': 'FRONTLINE - Netanyahu at War',
+                'duration': 6852,
+                'thumbnail': r're:^https?://.*\.jpg$',
+                'formats': 'mincount:8',
             },
         },
         {
@@ -352,23 +352,41 @@ class PBSIE(InfoExtractor):
         410: 'This video has expired and is no longer available for online streaming.',
     }
 
+    def _real_initialize(self):
+        cookie = (self._download_json(
+            'http://localization.services.pbs.org/localize/auto/cookie/',
+            None, headers=self.geo_verification_headers(), fatal=False) or {}).get('cookie')
+        if cookie:
+            station = self._search_regex(r'#?s=\["([^"]+)"', cookie, 'station')
+            if station:
+                self._set_cookie('.pbs.org', 'pbsol.station', station)
+
     def _extract_webpage(self, url):
         mobj = re.match(self._VALID_URL, url)
+
+        description = None
 
         presumptive_id = mobj.group('presumptive_id')
         display_id = presumptive_id
         if presumptive_id:
             webpage = self._download_webpage(url, display_id)
 
+            description = strip_or_none(self._og_search_description(
+                webpage, default=None) or self._html_search_meta(
+                'description', webpage, default=None))
             upload_date = unified_strdate(self._search_regex(
                 r'<input type="hidden" id="air_date_[0-9]+" value="([^"]+)"',
                 webpage, 'upload date', default=None))
 
             # tabbed frontline videos
-            tabbed_videos = re.findall(
-                r'<div[^>]+class="videotab[^"]*"[^>]+vid="(\d+)"', webpage)
-            if tabbed_videos:
-                return tabbed_videos, presumptive_id, upload_date
+            MULTI_PART_REGEXES = (
+                r'<div[^>]+class="videotab[^"]*"[^>]+vid="(\d+)"',
+                r'<a[^>]+href=["\']#video-\d+["\'][^>]+data-coveid=["\'](\d+)',
+            )
+            for p in MULTI_PART_REGEXES:
+                tabbed_videos = re.findall(p, webpage)
+                if tabbed_videos:
+                    return tabbed_videos, presumptive_id, upload_date, description
 
             MEDIA_ID_REGEXES = [
                 r"div\s*:\s*'videoembed'\s*,\s*mediaid\s*:\s*'(\d+)'",  # frontline video embed
@@ -380,7 +398,7 @@ class PBSIE(InfoExtractor):
             media_id = self._search_regex(
                 MEDIA_ID_REGEXES, webpage, 'media ID', fatal=False, default=None)
             if media_id:
-                return media_id, presumptive_id, upload_date
+                return media_id, presumptive_id, upload_date, description
 
             # Fronline video embedded via flp
             video_id = self._search_regex(
@@ -397,7 +415,7 @@ class PBSIE(InfoExtractor):
                     'http://www.pbs.org/wgbh/pages/frontline/.json/getdir/getdir%d.json' % prg_id,
                     presumptive_id, 'Downloading getdir JSON',
                     transform_source=strip_jsonp)
-                return getdir['mid'], presumptive_id, upload_date
+                return getdir['mid'], presumptive_id, upload_date, description
 
             for iframe in re.findall(r'(?s)<iframe(.+?)></iframe>', webpage):
                 url = self._search_regex(
@@ -421,10 +439,10 @@ class PBSIE(InfoExtractor):
             video_id = mobj.group('id')
             display_id = video_id
 
-        return video_id, display_id, None
+        return video_id, display_id, None, description
 
     def _real_extract(self, url):
-        video_id, display_id, upload_date = self._extract_webpage(url)
+        video_id, display_id, upload_date, description = self._extract_webpage(url)
 
         if isinstance(video_id, list):
             entries = [self.url_result(
@@ -432,29 +450,54 @@ class PBSIE(InfoExtractor):
                 for vid_id in video_id]
             return self.playlist_result(entries, display_id)
 
-        info = self._download_json(
-            'http://player.pbs.org/videoInfo/%s?format=json&type=partner' % video_id,
-            display_id)
+        info = None
+        redirects = []
+        redirect_urls = set()
+
+        def extract_redirect_urls(info):
+            for encoding_name in ('recommended_encoding', 'alternate_encoding'):
+                redirect = info.get(encoding_name)
+                if not redirect:
+                    continue
+                redirect_url = redirect.get('url')
+                if redirect_url and redirect_url not in redirect_urls:
+                    redirects.append(redirect)
+                    redirect_urls.add(redirect_url)
+
+        # Player pages may also serve different qualities
+        for page in ('widget/partnerplayer', 'portalplayer'):
+            player = self._download_webpage(
+                'http://player.pbs.org/%s/%s' % (page, video_id),
+                display_id, 'Downloading %s page' % page, fatal=False)
+            if player:
+                video_info = self._parse_json(
+                    self._search_regex(
+                        r'(?s)PBS\.videoData\s*=\s*({.+?});\n',
+                        player, '%s video data' % page, default='{}'),
+                    display_id, transform_source=js_to_json, fatal=False)
+                if video_info:
+                    extract_redirect_urls(video_info)
+                    if not info:
+                        info = video_info
 
         formats = []
-        for encoding_name in ('recommended_encoding', 'alternate_encoding'):
-            redirect = info.get(encoding_name)
-            if not redirect:
-                continue
-            redirect_url = redirect.get('url')
-            if not redirect_url:
-                continue
+        http_url = None
+        for num, redirect in enumerate(redirects):
+            redirect_id = redirect.get('eeid')
 
             redirect_info = self._download_json(
-                redirect_url + '?format=json', display_id,
-                'Downloading %s video url info' % encoding_name)
+                '%s?format=json' % redirect['url'], display_id,
+                'Downloading %s video url info' % (redirect_id or num),
+                headers=self.geo_verification_headers())
 
             if redirect_info['status'] == 'error':
+                message = self._ERRORS.get(
+                    redirect_info['http_code'], redirect_info['message'])
+                if redirect_info['http_code'] == 403:
+                    self.raise_geo_restricted(
+                        msg=message, countries=self._GEO_COUNTRIES)
                 raise ExtractorError(
-                    '%s said: %s' % (
-                        self.IE_NAME,
-                        self._ERRORS.get(redirect_info['http_code'], redirect_info['message'])),
-                    expected=True)
+                    '%s said: %s' % (self.IE_NAME, message), expected=True)
 
             format_url = redirect_info.get('url')
             if not format_url:
@@ -462,12 +505,41 @@ class PBSIE(InfoExtractor):
 
             if determine_ext(format_url) == 'm3u8':
                 formats.extend(self._extract_m3u8_formats(
-                    format_url, display_id, 'mp4', preference=1, m3u8_id='hls'))
+                    format_url, display_id, 'mp4', m3u8_id='hls', fatal=False))
             else:
                 formats.append({
                     'url': format_url,
-                    'format_id': redirect.get('eeid'),
+                    'format_id': redirect_id,
                 })
+                if re.search(r'^https?://.*(?:\d+k|baseline)', format_url):
+                    http_url = format_url
+        self._remove_duplicate_formats(formats)
+        m3u8_formats = list(filter(
+            lambda f: f.get('protocol') == 'm3u8' and f.get('vcodec') != 'none' and f.get('resolution') != 'multiple',
+            formats))
+        if http_url:
+            for m3u8_format in m3u8_formats:
+                bitrate = self._search_regex(r'(\d+)k', m3u8_format['url'], 'bitrate', default=None)
+                # Lower qualities (150k and 192k) are not available as HTTP formats (see [1]),
+                # we won't try extracting them.
+                # Since summer 2016 higher quality formats (4500k and 6500k) are also available
+                # albeit they are not documented in [2].
+                # 1. https://github.com/rg3/youtube-dl/commit/cbc032c8b70a038a69259378c92b4ba97b42d491#commitcomment-17313656
+                # 2. https://projects.pbs.org/confluence/display/coveapi/COVE+Video+Specifications
+                if not bitrate or int(bitrate) < 400:
+                    continue
+                f_url = re.sub(r'\d+k|baseline', bitrate + 'k', http_url)
+                # This may produce invalid links sometimes (e.g.
+                # http://www.pbs.org/wgbh/frontline/film/suicide-plan)
+                if not self._is_valid_url(f_url, display_id, 'http-%sk video' % bitrate):
+                    continue
+                f = m3u8_format.copy()
+                f.update({
+                    'url': f_url,
+                    'format_id': m3u8_format['format_id'].replace('hls', 'http'),
+                    'protocol': 'http',
+                })
+                formats.append(f)
         self._sort_formats(formats)
 
         rating_str = info.get('rating')
@@ -482,18 +554,34 @@ class PBSIE(InfoExtractor):
                 'ext': 'ttml',
                 'url': closed_captions_url,
             }]
+            mobj = re.search(r'/(\d+)_Encoded\.dfxp', closed_captions_url)
+            if mobj:
+                ttml_caption_suffix, ttml_caption_id = mobj.group(0, 1)
+                ttml_caption_id = int(ttml_caption_id)
+                subtitles['en'].extend([{
+                    'url': closed_captions_url.replace(
+                        ttml_caption_suffix, '/%d_Encoded.srt' % (ttml_caption_id + 1)),
+                    'ext': 'srt',
+                }, {
+                    'url': closed_captions_url.replace(
+                        ttml_caption_suffix, '/%d_Encoded.vtt' % (ttml_caption_id + 2)),
+                    'ext': 'vtt',
+                }])
 
         # info['title'] is often incomplete (e.g. 'Full Episode', 'Episode 5', etc)
         # Try turning it to 'program - title' naming scheme if possible
         alt_title = info.get('program', {}).get('title')
         if alt_title:
-            info['title'] = alt_title + ' - ' + re.sub(r'^' + alt_title + '[\s\-:]+', '', info['title'])
+            info['title'] = alt_title + ' - ' + re.sub(r'^' + alt_title + r'[\s\-:]+', '', info['title'])
+
+        description = info.get('description') or info.get(
+            'program', {}).get('description') or description
 
         return {
             'id': video_id,
             'display_id': display_id,
             'title': info['title'],
-            'description': info['program'].get('description'),
+            'description': description,
             'thumbnail': info.get('image_url'),
             'duration': int_or_none(info.get('duration')),
             'age_limit': age_limit,

@@ -21,7 +21,7 @@ from youtube_dl.extractor import (
     NPOIE,
     ComedyCentralIE,
     NRKTVIE,
-    RaiIE,
+    RaiPlayIE,
     VikiIE,
     ThePlatformIE,
     ThePlatformFeedIE,
@@ -65,16 +65,16 @@ class TestYoutubeSubtitles(BaseTestSubtitles):
         self.DL.params['allsubtitles'] = True
         subtitles = self.getSubtitles()
         self.assertEqual(len(subtitles.keys()), 13)
-        self.assertEqual(md5(subtitles['en']), '4cd9278a35ba2305f47354ee13472260')
-        self.assertEqual(md5(subtitles['it']), '164a51f16f260476a05b50fe4c2f161d')
-        for lang in ['it', 'fr', 'de']:
+        self.assertEqual(md5(subtitles['en']), '3cb210999d3e021bd6c7f0ea751eab06')
+        self.assertEqual(md5(subtitles['it']), '6d752b98c31f1cf8d597050c7a2cb4b5')
+        for lang in ['fr', 'de']:
             self.assertTrue(subtitles.get(lang) is not None, 'Subtitles for \'%s\' not extracted' % lang)
 
-    def test_youtube_subtitles_sbv_format(self):
+    def test_youtube_subtitles_ttml_format(self):
         self.DL.params['writesubtitles'] = True
-        self.DL.params['subtitlesformat'] = 'sbv'
+        self.DL.params['subtitlesformat'] = 'ttml'
         subtitles = self.getSubtitles()
-        self.assertEqual(md5(subtitles['en']), '13aeaa0c245a8bed9a451cb643e3ad8b')
+        self.assertEqual(md5(subtitles['en']), 'e306f8c42842f723447d9f63ad65df54')
 
     def test_youtube_subtitles_vtt_format(self):
         self.DL.params['writesubtitles'] = True
@@ -258,9 +258,9 @@ class TestNRKSubtitles(BaseTestSubtitles):
         self.assertEqual(md5(subtitles['no']), '544fa917d3197fcbee64634559221cc2')
 
 
-class TestRaiSubtitles(BaseTestSubtitles):
-    url = 'http://www.rai.tv/dl/RaiTV/programmi/media/ContentItem-cb27157f-9dd0-4aee-b788-b1f67643a391.html'
-    IE = RaiIE
+class TestRaiPlaySubtitles(BaseTestSubtitles):
+    url = 'http://www.raiplay.it/video/2014/04/Report-del-07042014-cb27157f-9dd0-4aee-b788-b1f67643a391.html'
+    IE = RaiPlayIE
 
     def test_allsubtitles(self):
         self.DL.params['writesubtitles'] = True

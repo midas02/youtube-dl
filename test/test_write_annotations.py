@@ -24,6 +24,7 @@ class YoutubeDL(youtube_dl.YoutubeDL):
         super(YoutubeDL, self).__init__(*args, **kwargs)
         self.to_stderr = self.to_screen
 
+
 params = get_params({
     'writeannotations': True,
     'skip_download': True,
@@ -66,13 +67,14 @@ class TestAnnotations(unittest.TestCase):
                 textTag = a.find('TEXT')
                 text = textTag.text
                 self.assertTrue(text in expected)  # assertIn only added in python 2.7
-                # remove the first occurance, there could be more than one annotation with the same text
+                # remove the first occurrence, there could be more than one annotation with the same text
                 expected.remove(text)
         # We should have seen (and removed) all the expected annotation texts.
         self.assertEqual(len(expected), 0, 'Not all expected annotations were found.')
 
     def tearDown(self):
         try_rm(ANNOTATIONS_FILE)
+
 
 if __name__ == '__main__':
     unittest.main()

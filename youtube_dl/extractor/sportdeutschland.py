@@ -20,8 +20,8 @@ class SportDeutschlandIE(InfoExtractor):
             'title': 're:Li-Ning Badminton Weltmeisterschaft 2014 Kopenhagen',
             'categories': ['Badminton'],
             'view_count': int,
-            'thumbnail': 're:^https?://.*\.jpg$',
-            'description': 're:Die Badminton-WM 2014 aus Kopenhagen bei Sportdeutschland\.TV',
+            'thumbnail': r're:^https?://.*\.jpg$',
+            'description': r're:Die Badminton-WM 2014 aus Kopenhagen bei Sportdeutschland\.TV',
             'timestamp': int,
             'upload_date': 're:^201408[23][0-9]$',
         },
@@ -38,7 +38,7 @@ class SportDeutschlandIE(InfoExtractor):
             'timestamp': 1408976060,
             'duration': 2732,
             'title': 'Li-Ning Badminton Weltmeisterschaft 2014 Kopenhagen: Herren Einzel, Wei Lee vs. Keun Lee',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'view_count': int,
             'categories': ['Li-Ning Badminton WM 2014'],
 
@@ -70,10 +70,12 @@ class SportDeutschlandIE(InfoExtractor):
 
             smil_doc = self._download_xml(
                 smil_url, video_id, note='Downloading SMIL metadata')
-            base_url = smil_doc.find('./head/meta').attrib['base']
+            base_url_el = smil_doc.find('./head/meta')
+            if base_url_el:
+                base_url = base_url_el.attrib['base']
             formats.extend([{
                 'format_id': 'rmtp',
-                'url': base_url,
+                'url': base_url if base_url_el else n.attrib['src'],
                 'play_path': n.attrib['src'],
                 'ext': 'flv',
                 'preference': -100,

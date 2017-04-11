@@ -12,24 +12,24 @@ from ..utils import (
     ExtractorError,
 )
 from .senateisvp import SenateISVPIE
+from .ustream import UstreamIE
 
 
 class CSpanIE(InfoExtractor):
-    _VALID_URL = r'http://(?:www\.)?c-span\.org/video/\?(?P<id>[0-9a-f]+)'
+    _VALID_URL = r'https?://(?:www\.)?c-span\.org/video/\?(?P<id>[0-9a-f]+)'
     IE_DESC = 'C-SPAN'
     _TESTS = [{
         'url': 'http://www.c-span.org/video/?313572-1/HolderonV',
         'md5': '94b29a4f131ff03d23471dd6f60b6a1d',
         'info_dict': {
             'id': '315139',
-            'ext': 'mp4',
             'title': 'Attorney General Eric Holder on Voting Rights Act Decision',
-            'description': 'Attorney General Eric Holder speaks to reporters following the Supreme Court decision in [Shelby County v. Holder], in which the court ruled that the preclearance provisions of the Voting Rights Act could not be enforced.',
         },
+        'playlist_mincount': 2,
         'skip': 'Regularly fails on travis, for unknown reasons',
     }, {
         'url': 'http://www.c-span.org/video/?c4486943/cspan-international-health-care-models',
-        'md5': '8e5fbfabe6ad0f89f3012a7943c1287b',
+        # md5 is unstable
         'info_dict': {
             'id': 'c4486943',
             'ext': 'mp4',
@@ -38,38 +38,66 @@ class CSpanIE(InfoExtractor):
         }
     }, {
         'url': 'http://www.c-span.org/video/?318608-1/gm-ignition-switch-recall',
-        'md5': '2ae5051559169baadba13fc35345ae74',
         'info_dict': {
             'id': '342759',
-            'ext': 'mp4',
             'title': 'General Motors Ignition Switch Recall',
-            'duration': 14848,
-            'description': 'md5:118081aedd24bf1d3b68b3803344e7f3'
         },
+        'playlist_mincount': 6,
     }, {
         # Video from senate.gov
         'url': 'http://www.c-span.org/video/?104517-1/immigration-reforms-needed-protect-skilled-american-workers',
         'info_dict': {
             'id': 'judiciary031715',
-            'ext': 'flv',
+            'ext': 'mp4',
             'title': 'Immigration Reforms Needed to Protect Skilled American Workers',
+        },
+        'params': {
+            'skip_download': True,  # m3u8 downloads
         }
+    }, {
+        # Ustream embedded video
+        'url': 'https://www.c-span.org/video/?114917-1/armed-services',
+        'info_dict': {
+            'id': '58428542',
+            'ext': 'flv',
+            'title': 'USHR07 Armed Services Committee',
+            'description': 'hsas00-2118-20150204-1000et-07\n\n\nUSHR07 Armed Services Committee',
+            'timestamp': 1423060374,
+            'upload_date': '20150204',
+            'uploader': 'HouseCommittee',
+            'uploader_id': '12987475',
+        },
     }]
 
     def _real_extract(self, url):
         video_id = self._match_id(url)
+        video_type = None
         webpage = self._download_webpage(url, video_id)
-        matches = re.search(r'data-(prog|clip)id=\'([0-9]+)\'', webpage)
-        if matches:
+
+        ustream_url = UstreamIE._extract_url(webpage)
+        if ustream_url:
+            return self.url_result(ustream_url, UstreamIE.ie_key())
+
+        # We first look for clipid, because clipprog always appears before
+        patterns = [r'id=\'clip(%s)\'\s*value=\'([0-9]+)\'' % t for t in ('id', 'prog')]
+        results = list(filter(None, (re.search(p, webpage) for p in patterns)))
+        if results:
+            matches = results[0]
             video_type, video_id = matches.groups()
-            if video_type == 'prog':
-                video_type = 'program'
+            video_type = 'clip' if video_type == 'id' else 'program'
         else:
-            senate_isvp_url = SenateISVPIE._search_iframe_url(webpage)
-            if senate_isvp_url:
-                title = self._og_search_title(webpage)
-                surl = smuggle_url(senate_isvp_url, {'force_title': title})
-                return self.url_result(surl, 'SenateISVP', video_id, title)
+            m = re.search(r'data-(?P<type>clip|prog)id=["\'](?P<id>\d+)', webpage)
+            if m:
+                video_id = m.group('id')
+                video_type = 'program' if m.group('type') == 'prog' else 'clip'
+            else:
+                senate_isvp_url = SenateISVPIE._search_iframe_url(webpage)
+                if senate_isvp_url:
+                    title = self._og_search_title(webpage)
+                    surl = smuggle_url(senate_isvp_url, {'force_title': title})
+                    return self.url_result(surl, 'SenateISVP', video_id, title)
+        if video_type is None or video_id is None:
+            raise ExtractorError('unable to find video id and type')
 
         def get_text_attr(d, attr):
             return d.get(attr, {}).get('#text')
@@ -102,6 +130,13 @@ class CSpanIE(InfoExtractor):
                     'height': int_or_none(get_text_attr(quality, 'height')),
                     'tbr': int_or_none(get_text_attr(quality, 'bitrate')),
                 })
+            if not formats:
+                path = unescapeHTML(get_text_attr(f, 'path'))
+                if not path:
+                    continue
+                formats = self._extract_m3u8_formats(
+                    path, video_id, 'mp4', entry_protocol='m3u8_native',
+                    m3u8_id='hls') if determine_ext(path) == 'm3u8' else [{'url': path, }]
             self._sort_formats(formats)
             entries.append({
                 'id': '%s_%d' % (video_id, partnum + 1),

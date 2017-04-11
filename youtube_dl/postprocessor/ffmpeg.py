@@ -25,6 +25,29 @@ from ..utils import (
 )
 
 
+EXT_TO_OUT_FORMATS = {
+    'aac': 'adts',
+    'flac': 'flac',
+    'm4a': 'ipod',
+    'mka': 'matroska',
+    'mkv': 'matroska',
+    'mpg': 'mpeg',
+    'ogv': 'ogg',
+    'ts': 'mpegts',
+    'wma': 'asf',
+    'wmv': 'asf',
+}
+ACODECS = {
+    'mp3': 'libmp3lame',
+    'aac': 'aac',
+    'flac': 'flac',
+    'm4a': 'aac',
+    'opus': 'opus',
+    'vorbis': 'libvorbis',
+    'wav': None,
+}
+
+
 class FFmpegPostProcessorError(PostProcessingError):
     pass
 
@@ -126,6 +149,30 @@ class FFmpegPostProcessor(PostProcessor):
     def probe_executable(self):
         return self._paths[self.probe_basename]
 
+    def get_audio_codec(self, path):
+        if not self.probe_available:
+            raise PostProcessingError('ffprobe or avprobe not found. Please install one.')
+        try:
+            cmd = [
+                encodeFilename(self.probe_executable, True),
+                encodeArgument('-show_streams'),
+                encodeFilename(self._ffmpeg_filename_argument(path), True)]
+            if self._downloader.params.get('verbose', False):
+                self._downloader.to_screen('[debug] %s command line: %s' % (self.basename, shell_quote(cmd)))
+            handle = subprocess.Popen(cmd, stderr=compat_subprocess_get_DEVNULL(), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            output = handle.communicate()[0]
+            if handle.wait() != 0:
+                return None
+        except (IOError, OSError):
+            return None
+        audio_codec = None
+        for line in output.decode('ascii', 'ignore').split('\n'):
+            if line.startswith('codec_name='):
+                audio_codec = line.split('=')[1].strip()
+            elif line.strip() == 'codec_type=audio' and audio_codec is not None:
+                return audio_codec
+        return None
+
     def run_ffmpeg_multiple_files(self, input_paths, out_path, opts):
         self.check_version()
 
@@ -162,7 +209,8 @@ class FFmpegPostProcessor(PostProcessor):
         # Always use 'file:' because the filename may contain ':' (ffmpeg
         # interprets that as a protocol) or can start with '-' (-- is broken in
         # ffmpeg, see https://ffmpeg.org/trac/ffmpeg/ticket/2127 for details)
-        return 'file:' + fn
+        # Also leave '-' intact in order not to break streaming to stdout.
+        return 'file:' + fn if fn != '-' else fn
 
 
 class FFmpegExtractAudioPP(FFmpegPostProcessor):
@@ -173,31 +221,6 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
         self._preferredcodec = preferredcodec
         self._preferredquality = preferredquality
         self._nopostoverwrites = nopostoverwrites
-
-    def get_audio_codec(self, path):
-
-        if not self.probe_available:
-            raise PostProcessingError('ffprobe or avprobe not found. Please install one.')
-        try:
-            cmd = [
-                encodeFilename(self.probe_executable, True),
-                encodeArgument('-show_streams'),
-                encodeFilename(self._ffmpeg_filename_argument(path), True)]
-            if self._downloader.params.get('verbose', False):
-                self._downloader.to_screen('[debug] %s command line: %s' % (self.basename, shell_quote(cmd)))
-            handle = subprocess.Popen(cmd, stderr=compat_subprocess_get_DEVNULL(), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            output = handle.communicate()[0]
-            if handle.wait() != 0:
-                return None
-        except (IOError, OSError):
-            return None
-        audio_codec = None
-        for line in output.decode('ascii', 'ignore').split('\n'):
-            if line.startswith('codec_name='):
-                audio_codec = line.split('=')[1].strip()
-            elif line.strip() == 'codec_type=audio' and audio_codec is not None:
-                return audio_codec
-        return None
 
     def run_ffmpeg(self, path, out_path, codec, more_opts):
         if codec is None:
@@ -224,7 +247,7 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
                 acodec = 'copy'
                 extension = 'm4a'
                 more_opts = ['-bsf:a', 'aac_adtstoasc']
-            elif filecodec in ['aac', 'mp3', 'vorbis', 'opus']:
+            elif filecodec in ['aac', 'flac', 'mp3', 'vorbis', 'opus']:
                 # Lossless if possible
                 acodec = 'copy'
                 extension = filecodec
@@ -243,8 +266,8 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
                     else:
                         more_opts += ['-b:a', self._preferredquality + 'k']
         else:
-            # We convert the audio (lossy)
-            acodec = {'mp3': 'libmp3lame', 'aac': 'aac', 'm4a': 'aac', 'opus': 'opus', 'vorbis': 'libvorbis', 'wav': None}[self._preferredcodec]
+            # We convert the audio (lossy if codec is lossy)
+            acodec = ACODECS[self._preferredcodec]
             extension = self._preferredcodec
             more_opts = []
             if self._preferredquality is not None:
@@ -266,6 +289,9 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
         prefix, sep, ext = path.rpartition('.')  # not os.path.splitext, since the latter does not work on unicode in all setups
         new_path = prefix + sep + extension
 
+        information['filepath'] = new_path
+        information['ext'] = extension
+
         # If we download foo.mp3 and convert it to... foo.mp3, then don't delete foo.mp3, silly.
         if (new_path == path or
                 (self._nopostoverwrites and os.path.exists(encodeFilename(new_path)))):
@@ -286,9 +312,6 @@ class FFmpegExtractAudioPP(FFmpegPostProcessor):
             self.try_utime(
                 new_path, time.time(), information['filetime'],
                 errnote='Cannot update utime of audio file')
-
-        information['filepath'] = new_path
-        information['ext'] = extension
 
         return [path], information
 
@@ -318,17 +341,34 @@ class FFmpegVideoConvertorPP(FFmpegPostProcessor):
 
 class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
     def run(self, information):
-        if information['ext'] not in ['mp4', 'mkv']:
-            self._downloader.to_screen('[ffmpeg] Subtitles can only be embedded in mp4 or mkv files')
+        if information['ext'] not in ('mp4', 'webm', 'mkv'):
+            self._downloader.to_screen('[ffmpeg] Subtitles can only be embedded in mp4, webm or mkv files')
             return [], information
         subtitles = information.get('requested_subtitles')
         if not subtitles:
             self._downloader.to_screen('[ffmpeg] There aren\'t any subtitles to embed')
             return [], information
 
-        sub_langs = list(subtitles.keys())
         filename = information['filepath']
-        sub_filenames = [subtitles_filename(filename, lang, sub_info['ext']) for lang, sub_info in subtitles.items()]
+
+        ext = information['ext']
+        sub_langs = []
+        sub_filenames = []
+        webm_vtt_warn = False
+
+        for lang, sub_info in subtitles.items():
+            sub_ext = sub_info['ext']
+            if ext != 'webm' or ext == 'webm' and sub_ext == 'vtt':
+                sub_langs.append(lang)
+                sub_filenames.append(subtitles_filename(filename, lang, sub_ext))
+            else:
+                if not webm_vtt_warn and ext == 'webm' and sub_ext != 'vtt':
+                    webm_vtt_warn = True
+                    self._downloader.to_screen('[ffmpeg] Only WebVTT subtitles can be embedded in webm files')
+
+        if not sub_langs:
+            return [], information
+
         input_files = [filename] + sub_filenames
 
         opts = [
@@ -358,23 +398,30 @@ class FFmpegEmbedSubtitlePP(FFmpegPostProcessor):
 class FFmpegMetadataPP(FFmpegPostProcessor):
     def run(self, info):
         metadata = {}
-        if info.get('title') is not None:
-            metadata['title'] = info['title']
-        if info.get('upload_date') is not None:
-            metadata['date'] = info['upload_date']
-        if info.get('artist') is not None:
-            metadata['artist'] = info['artist']
-        elif info.get('uploader') is not None:
-            metadata['artist'] = info['uploader']
-        elif info.get('uploader_id') is not None:
-            metadata['artist'] = info['uploader_id']
-        if info.get('description') is not None:
-            metadata['description'] = info['description']
-            metadata['comment'] = info['description']
-        if info.get('webpage_url') is not None:
-            metadata['purl'] = info['webpage_url']
-        if info.get('album') is not None:
-            metadata['album'] = info['album']
+
+        def add(meta_list, info_list=None):
+            if not info_list:
+                info_list = meta_list
+            if not isinstance(meta_list, (list, tuple)):
+                meta_list = (meta_list,)
+            if not isinstance(info_list, (list, tuple)):
+                info_list = (info_list,)
+            for info_f in info_list:
+                if info.get(info_f) is not None:
+                    for meta_f in meta_list:
+                        metadata[meta_f] = info[info_f]
+                    break
+
+        add('title', ('track', 'title'))
+        add('date', 'upload_date')
+        add(('description', 'comment'), 'description')
+        add('purl', 'webpage_url')
+        add('track', 'track_number')
+        add('artist', ('artist', 'creator', 'uploader', 'uploader_id'))
+        add('genre')
+        add('album')
+        add('album_artist')
+        add('disc', 'disc_number')
 
         if not metadata:
             self._downloader.to_screen('[ffmpeg] There isn\'t any metadata to add')
@@ -463,6 +510,21 @@ class FFmpegFixupM4aPP(FFmpegPostProcessor):
         return [], info
 
 
+class FFmpegFixupM3u8PP(FFmpegPostProcessor):
+    def run(self, info):
+        filename = info['filepath']
+        if self.get_audio_codec(filename) == 'aac':
+            temp_filename = prepend_extension(filename, 'temp')
+
+            options = ['-c', 'copy', '-f', 'mp4', '-bsf:a', 'aac_adtstoasc']
+            self._downloader.to_screen('[ffmpeg] Fixing malformated aac bitstream in "%s"' % filename)
+            self.run_ffmpeg(filename, temp_filename, options)
+
+            os.remove(encodeFilename(filename))
+            os.rename(encodeFilename(temp_filename), encodeFilename(filename))
+        return [], info
+
+
 class FFmpegSubtitlesConvertorPP(FFmpegPostProcessor):
     def __init__(self, downloader=None, format=None):
         super(FFmpegSubtitlesConvertorPP, self).__init__(downloader)
@@ -479,21 +541,23 @@ class FFmpegSubtitlesConvertorPP(FFmpegPostProcessor):
             self._downloader.to_screen('[ffmpeg] There aren\'t any subtitles to convert')
             return [], info
         self._downloader.to_screen('[ffmpeg] Converting subtitles')
+        sub_filenames = []
         for lang, sub in subs.items():
             ext = sub['ext']
             if ext == new_ext:
                 self._downloader.to_screen(
-                    '[ffmpeg] Subtitle file for %s is already in the requested'
-                    'format' % new_ext)
+                    '[ffmpeg] Subtitle file for %s is already in the requested format' % new_ext)
                 continue
+            old_file = subtitles_filename(filename, lang, ext)
+            sub_filenames.append(old_file)
             new_file = subtitles_filename(filename, lang, new_ext)
 
-            if ext == 'dfxp' or ext == 'ttml':
+            if ext == 'dfxp' or ext == 'ttml' or ext == 'tt':
                 self._downloader.report_warning(
                     'You have requested to convert dfxp (TTML) subtitles into another format, '
                     'which results in style information loss')
 
-                dfxp_file = subtitles_filename(filename, lang, ext)
+                dfxp_file = old_file
                 srt_file = subtitles_filename(filename, lang, 'srt')
 
                 with io.open(dfxp_file, 'rt', encoding='utf-8') as f:
@@ -501,8 +565,8 @@ class FFmpegSubtitlesConvertorPP(FFmpegPostProcessor):
 
                 with io.open(srt_file, 'wt', encoding='utf-8') as f:
                     f.write(srt_data)
+                old_file = srt_file
 
-                ext = 'srt'
                 subs[lang] = {
                     'ext': 'srt',
                     'data': srt_data
@@ -510,15 +574,15 @@ class FFmpegSubtitlesConvertorPP(FFmpegPostProcessor):
 
                 if new_ext == 'srt':
                     continue
+                else:
+                    sub_filenames.append(srt_file)
 
-            self.run_ffmpeg(
-                subtitles_filename(filename, lang, ext),
-                new_file, ['-f', new_format])
+            self.run_ffmpeg(old_file, new_file, ['-f', new_format])
 
             with io.open(new_file, 'rt', encoding='utf-8') as f:
                 subs[lang] = {
-                    'ext': ext,
+                    'ext': new_ext,
                     'data': f.read(),
                 }
 
-        return [], info
+        return sub_filenames, info

@@ -10,8 +10,8 @@ from ..utils import (
 
 
 class HotStarIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:www\.)?hotstar\.com/.*?[/-](?P<id>\d{10})'
-    _TEST = {
+    _VALID_URL = r'https?://(?:www\.)?hotstar\.com/(?:.+?[/-])?(?P<id>\d{10})'
+    _TESTS = [{
         'url': 'http://www.hotstar.com/on-air-with-aib--english-1000076273',
         'info_dict': {
             'id': '1000076273',
@@ -26,13 +26,17 @@ class HotStarIE(InfoExtractor):
             # m3u8 download
             'skip_download': True,
         }
-    }
+    }, {
+        'url': 'http://www.hotstar.com/sports/cricket/rajitha-sizzles-on-debut-with-329/2001477583',
+        'only_matching': True,
+    }, {
+        'url': 'http://www.hotstar.com/1000000515',
+        'only_matching': True,
+    }]
 
-    _GET_CONTENT_TEMPLATE = 'http://account.hotstar.com/AVS/besc?action=GetAggregatedContentDetails&channel=PCTV&contentId=%s'
-    _GET_CDN_TEMPLATE = 'http://getcdn.hotstar.com/AVS/besc?action=GetCDN&asJson=Y&channel=%s&id=%s&type=%s'
-
-    def _download_json(self, url_or_request, video_id, note='Downloading JSON metadata', fatal=True):
-        json_data = super(HotStarIE, self)._download_json(url_or_request, video_id, note, fatal=fatal)
+    def _download_json(self, url_or_request, video_id, note='Downloading JSON metadata', fatal=True, query=None):
+        json_data = super(HotStarIE, self)._download_json(
+            url_or_request, video_id, note, fatal=fatal, query=query)
         if json_data['resultCode'] != 'OK':
             if fatal:
                 raise ExtractorError(json_data['errorDescription'])
@@ -42,22 +46,37 @@ class HotStarIE(InfoExtractor):
     def _real_extract(self, url):
         video_id = self._match_id(url)
         video_data = self._download_json(
-            self._GET_CONTENT_TEMPLATE % video_id,
-            video_id)['contentInfo'][0]
+            'http://account.hotstar.com/AVS/besc', video_id, query={
+                'action': 'GetAggregatedContentDetails',
+                'channel': 'PCTV',
+                'contentId': video_id,
+            })['contentInfo'][0]
+        title = video_data['episodeTitle']
+
+        if video_data.get('encrypted') == 'Y':
+            raise ExtractorError('This video is DRM protected.', expected=True)
 
         formats = []
-        # PCTV for extracting f4m manifest
-        for f in ('TABLET',):
+        for f in ('JIO',):
             format_data = self._download_json(
-                self._GET_CDN_TEMPLATE % (f, video_id, 'VOD'),
-                video_id, 'Downloading %s JSON metadata' % f, fatal=False)
+                'http://getcdn.hotstar.com/AVS/besc',
+                video_id, 'Downloading %s JSON metadata' % f,
+                fatal=False, query={
+                    'action': 'GetCDN',
+                    'asJson': 'Y',
+                    'channel': f,
+                    'id': video_id,
+                    'type': 'VOD',
+                })
             if format_data:
-                format_url = format_data['src']
+                format_url = format_data.get('src')
+                if not format_url:
+                    continue
                 ext = determine_ext(format_url)
                 if ext == 'm3u8':
-                    m3u8_formats = self._extract_m3u8_formats(format_url, video_id, 'mp4', m3u8_id='hls', fatal=False)
-                    if m3u8_formats:
-                        formats.extend(m3u8_formats)
+                    formats.extend(self._extract_m3u8_formats(
+                        format_url, video_id, 'mp4',
+                        m3u8_id='hls', fatal=False))
                 elif ext == 'f4m':
                     # produce broken files
                     continue
@@ -71,9 +90,12 @@ class HotStarIE(InfoExtractor):
 
         return {
             'id': video_id,
-            'title': video_data['episodeTitle'],
+            'title': title,
             'description': video_data.get('description'),
             'duration': int_or_none(video_data.get('duration')),
             'timestamp': int_or_none(video_data.get('broadcastDate')),
             'formats': formats,
+            'episode': title,
+            'episode_number': int_or_none(video_data.get('episodeNumber')),
+            'series': video_data.get('contentTitle'),
         }

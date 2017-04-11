@@ -4,7 +4,6 @@ from __future__ import unicode_literals
 import re
 
 from .common import InfoExtractor
-from ..utils import int_or_none
 
 
 class JWPlatformIE(InfoExtractor):
@@ -33,39 +32,4 @@ class JWPlatformIE(InfoExtractor):
     def _real_extract(self, url):
         video_id = self._match_id(url)
         json_data = self._download_json('http://content.jwplatform.com/feeds/%s.json' % video_id, video_id)
-        video_data = json_data['playlist'][0]
-        subtitles = {}
-        for track in video_data['tracks']:
-            if track['kind'] == 'captions':
-                subtitles[track['label']] = [{'url': self._proto_relative_url(track['file'])}]
-
-        formats = []
-        for source in video_data['sources']:
-            source_url = self._proto_relative_url(source['file'])
-            source_type = source.get('type') or ''
-            if source_type == 'application/vnd.apple.mpegurl':
-                m3u8_formats = self._extract_m3u8_formats(source_url, video_id, 'mp4', 'm3u8_native', fatal=None)
-                if m3u8_formats:
-                    formats.extend(m3u8_formats)
-            elif source_type.startswith('audio'):
-                formats.append({
-                    'url': source_url,
-                    'vcodec': 'none',
-                })
-            else:
-                formats.append({
-                    'url': source_url,
-                    'width': int_or_none(source.get('width')),
-                    'height': int_or_none(source.get('height')),
-                })
-        self._sort_formats(formats)
-
-        return {
-            'id': video_id,
-            'title': video_data['title'],
-            'description': video_data.get('description'),
-            'thumbnail': self._proto_relative_url(video_data.get('image')),
-            'timestamp': int_or_none(video_data.get('pubdate')),
-            'subtitles': subtitles,
-            'formats': formats,
-        }
+        return self._parse_jwplayer_data(json_data, video_id)

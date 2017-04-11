@@ -4,15 +4,15 @@ from __future__ import unicode_literals
 
 import base64
 
-from .common import InfoExtractor
 from ..compat import (
     compat_urllib_parse_unquote,
-    compat_parse_qs,
+    compat_urlparse,
 )
 from ..utils import determine_ext
+from .bokecc import BokeCCBaseIE
 
 
-class InfoQIE(InfoExtractor):
+class InfoQIE(BokeCCBaseIE):
     _VALID_URL = r'https?://(?:www\.)?infoq\.com/(?:[^/]+/)+(?P<id>[^/]+)'
 
     _TESTS = [{
@@ -36,29 +36,21 @@ class InfoQIE(InfoExtractor):
             'ext': 'flv',
             'description': 'md5:308d981fb28fa42f49f9568322c683ff',
         },
+    }, {
+        'url': 'https://www.infoq.com/presentations/Simple-Made-Easy',
+        'md5': '0e34642d4d9ef44bf86f66f6399672db',
+        'info_dict': {
+            'id': 'Simple-Made-Easy',
+            'title': 'Simple Made Easy',
+            'ext': 'mp3',
+            'description': 'md5:3e0e213a8bbd074796ef89ea35ada25b',
+        },
+        'params': {
+            'format': 'bestaudio',
+        },
     }]
 
-    def _extract_bokecc_videos(self, webpage, video_id):
-        # TODO: bokecc.com is a Chinese video cloud platform
-        # It should have an independent extractor but I don't have other
-        # examples using bokecc
-        player_params_str = self._html_search_regex(
-            r'<script[^>]+src="http://p\.bokecc\.com/player\?([^"]+)',
-            webpage, 'player params', default=None)
-
-        player_params = compat_parse_qs(player_params_str)
-
-        info_xml = self._download_xml(
-            'http://p.bokecc.com/servlet/playinfo?uid=%s&vid=%s&m=1' % (
-                player_params['siteid'][0], player_params['vid'][0]), video_id)
-
-        return [{
-            'format_id': 'bokecc',
-            'url': quality.find('./copy').attrib['playurl'],
-            'preference': int(quality.attrib['value']),
-        } for quality in info_xml.findall('./video/quality')]
-
-    def _extract_rtmp_videos(self, webpage):
+    def _extract_rtmp_video(self, webpage):
         # The server URL is hardcoded
         video_url = 'rtmpe://video.infoq.com/cfx/st/'
 
@@ -70,26 +62,51 @@ class InfoQIE(InfoExtractor):
         playpath = 'mp4:' + real_id
 
         return [{
-            'format_id': 'rtmp',
+            'format_id': 'rtmp_video',
             'url': video_url,
             'ext': determine_ext(playpath),
             'play_path': playpath,
         }]
 
-    def _extract_http_videos(self, webpage):
-        http_video_url = self._search_regex(r'P\.s\s*=\s*\'([^\']+)\'', webpage, 'video URL')
-
+    def _extract_cookies(self, webpage):
         policy = self._search_regex(r'InfoQConstants.scp\s*=\s*\'([^\']+)\'', webpage, 'policy')
         signature = self._search_regex(r'InfoQConstants.scs\s*=\s*\'([^\']+)\'', webpage, 'signature')
         key_pair_id = self._search_regex(r'InfoQConstants.sck\s*=\s*\'([^\']+)\'', webpage, 'key-pair-id')
+        return 'CloudFront-Policy=%s; CloudFront-Signature=%s; CloudFront-Key-Pair-Id=%s' % (
+            policy, signature, key_pair_id)
 
+    def _extract_http_video(self, webpage):
+        http_video_url = self._search_regex(r'P\.s\s*=\s*\'([^\']+)\'', webpage, 'video URL')
         return [{
-            'format_id': 'http',
+            'format_id': 'http_video',
             'url': http_video_url,
             'http_headers': {
-                'Cookie': 'CloudFront-Policy=%s; CloudFront-Signature=%s; CloudFront-Key-Pair-Id=%s' % (
-                    policy, signature, key_pair_id),
+                'Cookie': self._extract_cookies(webpage)
             },
+        }]
+
+    def _extract_http_audio(self, webpage, video_id):
+        fields = self._hidden_inputs(webpage)
+        http_audio_url = fields['filename']
+        if http_audio_url is None:
+            return []
+
+        cookies_header = {'Cookie': self._extract_cookies(webpage)}
+
+        # base URL is found in the Location header in the response returned by
+        # GET https://www.infoq.com/mp3download.action?filename=... when logged in.
+        http_audio_url = compat_urlparse.urljoin('http://res.infoq.com/downloads/mp3downloads/', http_audio_url)
+
+        # audio file seem to be missing some times even if there is a download link
+        # so probe URL to make sure
+        if not self._is_valid_url(http_audio_url, video_id, headers=cookies_header):
+            return []
+
+        return [{
+            'format_id': 'http_audio',
+            'url': http_audio_url,
+            'vcodec': 'none',
+            'http_headers': cookies_header,
         }]
 
     def _real_extract(self, url):
@@ -101,9 +118,12 @@ class InfoQIE(InfoExtractor):
 
         if '/cn/' in url:
             # for China videos, HTTP video URL exists but always fails with 403
-            formats = self._extract_bokecc_videos(webpage, video_id)
+            formats = self._extract_bokecc_formats(webpage, video_id)
         else:
-            formats = self._extract_rtmp_videos(webpage) + self._extract_http_videos(webpage)
+            formats = (
+                self._extract_rtmp_video(webpage) +
+                self._extract_http_video(webpage) +
+                self._extract_http_audio(webpage, video_id))
 
         self._sort_formats(formats)
 

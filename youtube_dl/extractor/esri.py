@@ -22,7 +22,7 @@ class EsriVideoIE(InfoExtractor):
             'ext': 'mp4',
             'title': 'ArcGIS Online - Developing Applications',
             'description': 'Jeremy Bartley demonstrates how to develop applications with ArcGIS Online.',
-            'thumbnail': 're:^https?://.*\.jpg$',
+            'thumbnail': r're:^https?://.*\.jpg$',
             'duration': 185,
             'upload_date': '20120419',
         }
@@ -61,7 +61,7 @@ class EsriVideoIE(InfoExtractor):
             webpage, 'duration', fatal=False))
 
         upload_date = unified_strdate(self._html_search_meta(
-            'last-modified', webpage, 'upload date', fatal=None))
+            'last-modified', webpage, 'upload date', fatal=False))
 
         return {
             'id': video_id,
