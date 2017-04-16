@@ -384,6 +384,7 @@ from .globo import (
     GloboArticleIE,
 )
 from .go import GoIE
+from .go90 import Go90IE
 from .godtube import GodTubeIE
 from .godtv import GodTVIE
 from .golem import GolemIE
@@ -939,6 +940,7 @@ from .srmediathek import SRMediathekIE
 from .stanfordoc import StanfordOpenClassroomIE
 from .steam import SteamIE
 from .streamable import StreamableIE
+from .streamango import StreamangoIE
 from .streamcloud import StreamcloudIE
 from .streamcz import StreamCZIE
 from .streetvoice import StreetVoiceIE
@@ -1233,7 +1235,10 @@ from .wrzuta import (
     WrzutaIE,
     WrzutaPlaylistIE,
 )
-from .wsj import WSJIE
+from .wsj import (
+    WSJIE,
+    WSJArticleIE,
+)
 from .xbef import XBefIE
 from .xboxclips import XboxClipsIE
 from .xfileshare import XFileShareIE

@@ -308,6 +308,7 @@
  - **Globo**
  - **GloboArticle**
  - **Go**
+ - **Go90**
  - **GodTube**
  - **GodTV**
  - **Golem**
@@ -744,6 +745,7 @@
  - **Steam**
  - **Stitcher**
  - **Streamable**
+ - **Streamango**
  - **streamcloud.eu**
  - **StreamCZ**
  - **StreetVoice**
@@ -818,6 +820,7 @@
  - **Tutv**
  - **tv.dfb.de**
  - **TV2**
+ - **tv2.hu**
  - **TV2Article**
  - **TV3**
  - **TV4**: tv4.se and tv4play.se
@@ -964,6 +967,7 @@
  - **wrzuta.pl**
  - **wrzuta.pl:playlist**
  - **WSJ**: Wall Street Journal
+ - **WSJArticle**
  - **XBef**
  - **XboxClips**
  - **XFileShare**: XFileShare based sites: DaClips, FileHoot, GorillaVid, MovPod, PowerWatch, Rapidvideo.ws, TheVideoBee, Vidto, Streamin.To, XVIDSTAGE, Vid ABC, VidBom, vidlo
