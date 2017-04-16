@@ -652,7 +652,7 @@ from .nick import (
     NickNightIE,
 )
 from .niconico import NiconicoIE, NiconicoPlaylistIE
-from .nieuwsblad import NieuwsbladIE
+from .mediahuis import MediahuisIE
 from .ninecninemedia import (
     NineCNineMediaStackIE,
     NineCNineMediaIE,
