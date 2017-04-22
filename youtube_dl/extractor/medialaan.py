@@ -7,6 +7,7 @@ from ..compat import compat_str
 from ..utils import (
     ExtractorError,
     int_or_none,
+    str_or_none,
     parse_duration,
     try_get,
     unified_timestamp,
@@ -151,8 +152,7 @@ class MedialaanIE(InfoExtractor):
             if player:
                 video = player[-1]
                 info = {
-                    'id': video_id,
-                    # 'id': str_or_none(video['id']) or video_id,
+                    'id': str_or_none(video['id']) or video_id,
                     'url': video['videoUrl'],
                     'title': video['title'],
                     'thumbnail': video.get('imageUrl'),
