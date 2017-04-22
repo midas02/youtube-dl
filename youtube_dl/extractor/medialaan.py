@@ -85,6 +85,10 @@ class MedialaanIE(InfoExtractor):
         # clip
         'url': 'http://vtmkzoom.be/k3-dansstudio/een-nieuw-seizoen-van-k3-dansstudio',
         'only_matching': True,
+    }, {
+        # syndication.medialaan.be
+        'url': 'https://syndication.medialaan.be/syndication/?vID=50534bb11fe5827eb25cad5c3445c5ae',
+        'only_matching': True,
     }]
 
     def _real_initialize(self):
